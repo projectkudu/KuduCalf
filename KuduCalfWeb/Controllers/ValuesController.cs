@@ -21,16 +21,22 @@ namespace KuduCalfWeb.Controllers
 
             string repoUri = ConfigurationManager.AppSettings["RemoteRepository"];
 
+            var creds = new Credentials
+            {
+                Username = ConfigurationManager.AppSettings["RemoteRepositoryUsername"],
+                Password = ConfigurationManager.AppSettings["RemoteRepositoryPassword"]
+            };
+
             if (!Repository.IsValid(targetWebRoot))
             {
-                using (var repo = Repository.Clone(repoUri, targetWebRoot)) { }
+                using (var repo = Repository.Clone(repoUri, targetWebRoot, credentials: creds)) { }
             }
             else
             {
                 using (var repo = new Repository(targetWebRoot))
                 {
                     // TODO: is there a cleaner way of doing a pull?
-                    repo.Fetch("origin");
+                    repo.Fetch("origin", credentials: creds);
                     repo.Reset(ResetOptions.Hard, "origin/master");
                 }
             }
