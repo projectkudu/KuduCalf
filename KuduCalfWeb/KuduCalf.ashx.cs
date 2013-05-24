@@ -3,19 +3,20 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Web;
-using System.Web.Http;
 using LibGit2Sharp;
 
-namespace KuduCalfWeb.Controllers
+namespace KuduCalfWeb
 {
-    public class ValuesController : ApiController
+    /// <summary>
+    /// Summary description for KuduCalf
+    /// </summary>
+    public class KuduCalf : IHttpHandler
     {
-        // GET api/values
-        public string Get()
+        public void ProcessRequest(HttpContext context)
         {
+            context.Response.ContentType = "text/plain";
+
             string targetWebRoot = ConfigurationManager.AppSettings["WebRoot"];
             targetWebRoot = Path.Combine(HttpRuntime.AppDomainAppPath, targetWebRoot);
 
@@ -41,7 +42,15 @@ namespace KuduCalfWeb.Controllers
                 }
             }
 
-            return targetWebRoot;
+            context.Response.Write(targetWebRoot);
+        }
+
+        public bool IsReusable
+        {
+            get
+            {
+                return false;
+            }
         }
     }
 }
