@@ -10,6 +10,25 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{4C673B
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartSync", "SmartSync\SmartSync.csproj", "{7BC51FE8-5D6F-4289-AE80-1516C211086D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KuduCalfCmd", "KuduCalfCmd\KuduCalfCmd.csproj", "{37E02334-0C83-41F6-88AB-860B43732488}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{322D9294-E11E-4C11-9E3E-858DA0F60F40}"
+	ProjectSection(SolutionItems) = preProject
+		Build\Build.proj = Build\Build.proj
+		Build\Build.targets = Build\Build.targets
+		Build\Build.tasks = Build\Build.tasks
+		Build\CommonAssemblyInfo.cs = Build\CommonAssemblyInfo.cs
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "KuduCalfSetup", "KuduCalfSetup", "{98D6A973-8427-49A0-B68F-148B3053BACF}"
+	ProjectSection(SolutionItems) = preProject
+		KuduCalfSetup\KuduCalfSync.ps1 = KuduCalfSetup\KuduCalfSync.ps1
+		KuduCalfSetup\runme.cmd = KuduCalfSetup\runme.cmd
+		KuduCalfSetup\Setup.ps1 = KuduCalfSetup\Setup.ps1
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +39,14 @@ Global
 		{114D06F0-69B5-4930-A403-1C0545B36BFC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{114D06F0-69B5-4930-A403-1C0545B36BFC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{114D06F0-69B5-4930-A403-1C0545B36BFC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7BC51FE8-5D6F-4289-AE80-1516C211086D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7BC51FE8-5D6F-4289-AE80-1516C211086D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7BC51FE8-5D6F-4289-AE80-1516C211086D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7BC51FE8-5D6F-4289-AE80-1516C211086D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37E02334-0C83-41F6-88AB-860B43732488}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37E02334-0C83-41F6-88AB-860B43732488}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37E02334-0C83-41F6-88AB-860B43732488}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37E02334-0C83-41F6-88AB-860B43732488}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

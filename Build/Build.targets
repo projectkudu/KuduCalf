@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildThisFileDirectory)\Build.tasks" />
+  <Target Name="UpdateVersion" Condition="'$(BUILD_NUMBER)' != ''">
+    <RegexTransform Items="@(RegexTransform)" />
+  </Target>
+  <Target Name="CopyLibGit2SharpNativeDependencies">
+    <ItemGroup>
+      <LibGit2SharpNativeBinaries Include="$(MSBuildThisFileDirectory)\..\packages\LibGit2Sharp.0.11.0.0\NativeBinaries\**\*.dll"/>
+    </ItemGroup>
+    <Copy SourceFiles="@(LibGit2SharpNativeBinaries)"
+          SkipUnchangedFiles="true"
+          DestinationFiles="@(LibGit2SharpNativeBinaries->'$(TargetDir)\NativeBinaries\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+  <Target Name="CreateArtifacts" DependsOnTargets="BuildSolution">
+    <PropertyGroup>
+      <KuduCalfWebProj>$(ProjectRoot)\KuduCalfWeb\KuduCalfWeb.csproj</KuduCalfWebProj>
+      <KuduCalfCmdInput>$(ProjectRoot)\KuduCalfCmd\bin\$(Configuration)</KuduCalfCmdInput>
+      <KuduCalfSetupInput>$(ProjectRoot)\KuduCalfSetup</KuduCalfSetupInput>
+      <ObjectDir>$(MSBuildProjectDirectory)\obj\$(Configuration)</ObjectDir>
+      <KuduCalfInput>$(ObjectDir)\KuduCalf</KuduCalfInput>
+      <KuduCalfCmdTempDir>$(ObjectDir)\KuduCalfCmd</KuduCalfCmdTempDir>
+      <KuduCalfWebOutput>$(KuduCalfInput)\KuduCalfWeb</KuduCalfWebOutput>
+      <KuduCalfCmdOutput>$(KuduCalfInput)\KuduCalfCmd.zip</KuduCalfCmdOutput>
+      <KuduCalfSetupOutput>$(KuduCalfInput)</KuduCalfSetupOutput>
+      <KuduCalfOutput>$(ArtifactsPath)\KuduCalf.$(Build).zip</KuduCalfOutput>
+    </PropertyGroup>
+    <ItemGroup>
+      <KuduCalfCmdFilesToCopy
+        Include="$(KuduCalfCmdInput)\**\*.dll;$(KuduCalfCmdInput)\**\*.exe;$(KuduCalfCmdInput)\**\*.exe.config" />
+      <KuduCalfCmdFilesToCopy Condition="$(Configuration)=='Debug'"
+        Include="$(KuduCalfCmdInput)\**\*.pdb" />
+      <KuduCalfSetupFilesToCopy
+        Include="$(KuduCalfSetupInput)\**\*.*" />
+      <FilesToDelete Include="$(ObjectDir)\**\*.*;$(ArtifactsPath)\KuduCalf.*.zip"/>
+    </ItemGroup>
+    <MakeDir Directories="$(ArtifactsPath)" Condition="!Exists('$(ArtifactsPath)')" />
+    <Delete Files="@(FilesToDelete)"/>
+    <Copy SourceFiles="@(KuduCalfCmdFilesToCopy)"
+          SkipUnchangedFiles="true"
+          DestinationFiles="@(KuduCalfCmdFilesToCopy->'$(KuduCalfCmdTempDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(KuduCalfSetupFilesToCopy)"
+          SkipUnchangedFiles="true"
+          DestinationFiles="@(KuduCalfSetupFilesToCopy->'$(KuduCalfSetupOutput)\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <MSBuild Projects="$(KuduCalfWebProj)"
+            Targets="pipelinePreDeployCopyAllFilesToOneFolder"
+            Properties="_PackageTempDir=$(KuduCalfWebOutput);
+                             AutoParameterizationWebConfigConnectionStrings=false;
+                             SolutionDir=$(ProjectRoot)\;"/>
+   <!-- work around issue with publish and native deps--> 
+   <MSBuild Projects="$(KuduCalfWebProj)"
+            Targets="CopyLibGit2SharpNativeDependencies"
+            Properties="TargetDir=$(KuduCalfWebOutput)\bin"/>
+    <CreateZipFileFromDirectory  SourceDirectory="$(KuduCalfCmdTempDir)"
+                                 DestinationArchive="$(KuduCalfCmdOutput)"
+                                 IncludeBaseDirectory="true"/>
+    <CreateZipFileFromDirectory  SourceDirectory="$(KuduCalfInput)"
+                                 DestinationArchive="$(KuduCalfOutput)"
+                                 IncludeBaseDirectory="false"/>
+  </Target>
+  <Target Name="BuildSolution">
+    <MSBuild Projects="$(ProjectRoot)\kuducalf.sln"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);RunCodeAnalysis=true;CodeAnalysisAdditionalOptions=/assemblyCompareMode:StrongNameIgnoringVersion" />
+  </Target>
+</Project>
