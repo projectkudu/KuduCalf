@@ -1,6 +1,6 @@
 ### Kudu Calf
 
-Kudu Calf is used to deploy children sites from a paren Kudu site
+Kudu Calf is used to deploy children sites from a parent Kudu site
 
 ### Documentation
 
