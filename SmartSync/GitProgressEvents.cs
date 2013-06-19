@@ -76,6 +76,7 @@ namespace SmartSync
                     CheckoutProgressUpdate(path, completedSteps, totalSteps);
                 }
             }
+        
         }
 
         public int CompletionHandler(RemoteCompletionType type)

@@ -29,34 +29,40 @@ namespace KuduCalfCmd
             public bool Verbose { get; set; }
         }
 
+        public class CmdArgsGetToolVersion : CmdArgsCommon
+        {
+            [Option('c', "CompatibleWith", Required = false, HelpText = "Check if current version is forward compatible with passed in version.")]
+            public string CompatibleWith { get; set; }
+        }
+
         public class CmdArgsSubIdReq : CmdArgsCommon
         {
-            [Option('S',"SubscriberId",Required = true, HelpText = "Id of subscriber.")]
+            [Option('s',"SubscriberId",Required = true, HelpText = "Id of subscriber.")]
             public string Id { get; set; }
+        }
+
+        public class CmdArgsSetSubscriberSiteStatus : CmdArgsSubIdReq
+        {
+            [Option('T', "Token", Required = true, HelpText = "Token of Snapshot")]
+            public string Token { get; set; }
         }
 
         public class CmdArgsNewSub : CmdArgsSubIdReq
         {
-            [Option('u', "SyncUrl", Required = true, HelpText = "The sync url of the subscriber.")]
-            public string SyncUrl { get; set; }
+            [Option('u', "PublicUpdateNotifyUrl", Required = true, HelpText = "The public update notification  url of the subscriber.")]
+            public string PublicUpdateNotifyUrl { get; set; }
+            [Option('d', "PrivateUpdateNotifyUrl", Required = false, HelpText = "Optional private update notification url of the subscriber to use when behind a loadbalancer.")]
+            public string PrivateUpdateNotifyUrl { get; set; }
         }
 
         public class CmdArgsSubIdOpt : CmdArgsCommon
         {
-            [Option('S',"SubscriberId", Required = false, HelpText = "Id of subscriber.")]
+            [Option('s',"SubscriberId", Required = false, HelpText = "Id of subscriber.")]
             public string Id { get; set; }
-        }
-
-        public class CmdArgsWatchSmartSyncState : CmdArgsCommon
-        {
-            [Option('t',"PollInterval", Required = false, HelpText = "Polling interval to refresh at.",
-                DefaultValue=15)]
-            public int PollInterval { get; set; }
         }
 
         public class CmdArgsInitalizeSyncState: CmdArgsCommon
         {
-
             [Option('u', "ParentUrl", Required = false, HelpText = "Url of parent repository")]
             public string ParentUri { get; set; }
 
@@ -88,20 +94,34 @@ namespace KuduCalfCmd
             public string Command { get; set; }
         }
 
+        public class CmdArgsWatchSyncState : CmdArgsCommon
+        {
+            [Option('t', "PollInterval", Required = false, HelpText = "Polling interval to refresh at.",
+                DefaultValue = 0)]
+            public int PollInterval { get; set; }
+
+            [Option('u', "PublicUpdateNotifyUrl", Required = false, HelpText = "The public update notification url of the subscriber(s).")]
+            public string PublicUpdateNotifyUrl { get; set; }
+        }
+
         public class CmdVerbs 
         {
+            public const string GetToolVersionVerb = "Get-ToolVersion";
             public const string NewSubscriberVerb = "New-Subscriber";
             public const string GetSubscriberVerb = "Get-Subscriber";
+            public const string SetSubscriberSiteStatusVerb = "Set-SubscriberSiteStatus";
             public const string RemoveSubscriberVerb = "Remove-Subscriber";
             public const string SyncSubscriberVerb = "Sync-Subscriber";
             public const string PublishDirectoryVerb = "Publish-Directory";
             public const string SyncDirectoryVerb = "Sync-Directory";
             public const string InitializeSyncStateVerb = "Initialize-SyncState";
+            public const string WatchSyncStateVerb = "Watch-SyncState";
             public const string KuduSyncVerb = "KuduSync";
             public const string GetHelpVerb = "Get-Help";
-          
+
             public CmdVerbs()
             {
+                GetToolVersion = new CmdArgsGetToolVersion();
                 NewSubscriber = new CmdArgsNewSub();
                 GetSubscriber = new CmdArgsSubIdOpt();
                 RemoveSubscriber = new CmdArgsSubIdReq();
@@ -111,8 +131,14 @@ namespace KuduCalfCmd
                 InitalizeSyncState  = new CmdArgsInitalizeSyncState();
                 KuduSync = new KuduSyncOptions();
                 GetHelp = new CmdArgsGetHelpCommand();
+                SetSubscriberSiteStatus = new CmdArgsSetSubscriberSiteStatus();
+                WatchSyncState = new CmdArgsWatchSyncState();
                 
             }
+
+            [VerbOption(GetToolVersionVerb)]
+            public CmdArgsGetToolVersion GetToolVersion { get; set; }
+
             [VerbOption(NewSubscriberVerb)]
             public CmdArgsSubIdReq NewSubscriber { get; set; }
 
@@ -139,6 +165,12 @@ namespace KuduCalfCmd
 
             [VerbOption(GetHelpVerb)]
             public CmdArgsGetHelpCommand GetHelp { get; set; }
+
+            [VerbOption(SetSubscriberSiteStatusVerb)]
+            public CmdArgsSetSubscriberSiteStatus SetSubscriberSiteStatus { get; set; }
+
+            [VerbOption(WatchSyncStateVerb)]
+            public CmdArgsWatchSyncState WatchSyncState { get; set; }
 
             [HelpVerbOption]
             public string GetUsage(string verb)
@@ -177,6 +209,24 @@ namespace KuduCalfCmd
             Console.WriteLine(txt);
         }
 
+        public  string GetToolVersion(CmdArgsGetToolVersion args)
+        {
+            var currentVersion = Config.VersionInfo.FileVersion;
+            if (String.IsNullOrEmpty(args.CompatibleWith))
+            {
+                return Config.VersionInfo.FileVersion;
+            }
+            else
+            {
+                if (args.CompatibleWith.Equals("0.0.0.0"))
+                {
+                    return "False"; // unversioned dev build 
+                }
+                bool compatibleWith = args.CompatibleWith.Equals(Config.VersionInfo.FileVersion.ToString());
+                return compatibleWith.ToString();
+            }
+        }
+
         public IEnumerable<SubscriberState> GetSubscriber(CmdArgsSubIdOpt args)
         {
             var ops = GetOperations();
@@ -202,12 +252,15 @@ namespace KuduCalfCmd
         {
             var ops = GetOperations();
             var sub = args.Id;
-            var syncUri = new Uri(args.SyncUrl, UriKind.Absolute);
-            
+            var publicUpdateNotifyUri = new Uri(args.PublicUpdateNotifyUrl, UriKind.Absolute);
+            var privateUpdateNotifyUri = !String.IsNullOrEmpty(args.PrivateUpdateNotifyUrl) ? new Uri(args.PrivateUpdateNotifyUrl, UriKind.Absolute) : null;
+           
             var init = new SubscriberState()
             {
                 Id = args.Id,
-                FastUpdateUri = syncUri
+                PrivateUpdateNotifyUri = privateUpdateNotifyUri,
+                PublicUpdateNotifyUri = publicUpdateNotifyUri,
+                SubscribedToPublisher = Config.DefaultPublisherId
             };
 
             if (!ops.CreateSubscriber(init))
@@ -243,6 +296,7 @@ namespace KuduCalfCmd
                 Comment = comment
             });
             SyncSubscriber(new CmdArgsSubIdOpt());
+            WatchSyncState(new CmdArgsWatchSyncState() { PollInterval = 15 });
             return true;
         }
 
@@ -262,6 +316,7 @@ namespace KuduCalfCmd
 
             return new HashSet<string>();
         }
+
         static private bool IsTopLevelGitRepo(FileSystemInfo item, DirectoryInfo root)
         {
             var dirItem = item as DirectoryInfo;
@@ -280,6 +335,49 @@ namespace KuduCalfCmd
             LogEvent.IgnoringTopLevelGitRepositoryInSourceDirectory(item.FullName);
             return true;
         }
+
+        public void WatchSyncState(CmdArgsWatchSyncState args)
+        {
+            var ops = GetOperations();
+            var stopWatch = System.Diagnostics.Stopwatch.StartNew();
+            HashSet<string> lastWaitSet = new HashSet<string>();
+            Func<SubscriberState, bool> filter = ignored => true;
+            if (args.PublicUpdateNotifyUrl != null)
+            {
+                var pubUri = new Uri(args.PublicUpdateNotifyUrl);
+                filter = (s) =>
+                    {
+                        return pubUri.Equals(s.PublicUpdateNotifyUri);
+                    };
+            }
+            IEnumerable<SubscriberState> outOfSync = ops.NotAtTargetState().Where(filter);
+            while (outOfSync.Any())
+            {
+                var ids = outOfSync.Select(sub => sub.Id);
+                var currWaitSet = new HashSet<string>(ids);
+                if (!currWaitSet.SequenceEqual(lastWaitSet))
+                {
+                    WriteToOutput("Waiting for the following subscribers to catch up.");
+                    WriteToOutput("===================================================");
+                    foreach (var sub in outOfSync)
+                    {
+                        WriteToOutput("Id : {0}", sub.Id);
+                        WriteToOutput("PublicUri : {0}", sub.PublicUpdateNotifyUri);
+                        WriteToOutput("PrivateUri : {0}", sub.PrivateUpdateNotifyUri);
+                    }
+                    WriteToOutput("===================================================");
+                    lastWaitSet = currWaitSet;
+                }
+                if (args.PollInterval <= 0)
+                {
+                    return;
+                }
+                ops.WaitForStateChange(TimeSpan.FromSeconds(args.PollInterval));
+                outOfSync = ops.NotAtTargetState().Where(filter);
+            }
+            WriteToOutput("Subscribers all up to date.");
+        }
+
         public SnapshotId PublishDirectory(CmdArgsPublishDirectory args)
         {
             var ops = GetOperations();
@@ -306,32 +404,37 @@ namespace KuduCalfCmd
             Func<FileSystemInfo, bool> filter = fsi => !ignoreList.Contains(fsi.Name) && !IsTopLevelGitRepo(fsi, dirRoot) ;
             var snapId =  repo.CreateSnapshotFromDirectory(dirRoot, comment, filter);
             WriteToOutput("Publishing directory to: {0}", pubId);
-#if false
-
-            ops.UpdatePublisher(pubId, pubState =>
-                {
+            ops.UpdatePublisher(pubId, pubState => {
                     // note that the snapId maybe out of date so we always fetch the latest for the repo.
                     pubState.LatestSnapshotIdToken = repo.GetLatestSnapshotId().Token;
-                });
-#endif
+            });
             return snapId;
         }
 
         public IEnumerable<SubscriberState> SyncSubscriber(CmdArgsSubIdOpt args)
         {
-            var subs = GetSubscriber(args).Where(sub => sub.FastUpdateUri != null);
-            var resp  =  PingSubscribers(subs, TimeSpan.FromMinutes(5));
+            var allSubsWithNotifyUris =  GetSubscriber(args).Where(sub => sub.PublicUpdateNotifyUri != null); 
+            var subs = new Dictionary<string, SubscriberState>();
+            foreach(var sub in allSubsWithNotifyUris)
+            {
+                if(!subs.ContainsKey(sub.PublicUpdateNotifyUri.AbsoluteUri))
+                {
+                    subs.Add(sub.PublicUpdateNotifyUri.AbsoluteUri, sub);
+                }
+            }
+            var subsToPing = subs.Values;
+            var resp  =  PingSubscribers(subsToPing, TimeSpan.FromMinutes(5));
             var succeded = from ret in resp
-                           where ret.Value == HttpStatusCode.OK
+                           where ret.Value == HttpStatusCode.Accepted
                            select ret.Key;
 
             var failed = from ret in resp
-                         where ret.Value != HttpStatusCode.OK
+                         where ret.Value != HttpStatusCode.Accepted
                          select ret;
 
             foreach (var kv in failed)
             {
-                LogEvent.SubscriberSyncWrongStatus(kv.Key.Id, kv.Key.FastUpdateUri, (int)kv.Value);
+                LogEvent.SubscriberSyncWrongStatus(kv.Key.Id, kv.Key.PublicUpdateNotifyUri, (int)kv.Value);
             }
 
             return succeded;
@@ -357,9 +460,23 @@ namespace KuduCalfCmd
             var ops = GetOperations();
             ret &= repo.Initialize();
             ret &= ops.Initialize(args.Force);
+            ops.CreatePublisher(new PublisherState() {
+                    Created = DateTime.UtcNow,
+                    Id = Config.DefaultPublisherId
+                }, args.Force);
             return ret;
         }
-        
+
+        public void SetSubscriberSiteStatus(CmdArgsSetSubscriberSiteStatus args)
+        {
+            var ops = GetOperations();
+            var sub = args.Id;
+            var token = args.Token;
+            ops.UpdateSubscriber(sub, subState => {
+                subState.LastSyncedSnaphostIdToken =  token;
+            });                           
+        }
+
         private void DoCommand(CmdVerbs cmds, string verb, Object args)
         {
             if (args == null)
@@ -367,7 +484,12 @@ namespace KuduCalfCmd
                 return;
             }
             var verbCmds = new Dictionary<string, Action>(StringComparer.OrdinalIgnoreCase);
-           
+
+            verbCmds.Add(CmdVerbs.GetToolVersionVerb, () =>
+            {
+                var ret = GetToolVersion((CmdArgsGetToolVersion)args);
+                WriteToOutput(ret);
+            });
             verbCmds.Add(CmdVerbs.GetSubscriberVerb, () =>
             {
                 var subs = GetSubscriber((CmdArgsSubIdOpt)args);
@@ -404,6 +526,14 @@ namespace KuduCalfCmd
             verbCmds.Add(CmdVerbs.KuduSyncVerb, () =>
             {
                 KuduSync((KuduSyncOptions)args);
+            });
+            verbCmds.Add(CmdVerbs.WatchSyncStateVerb, () => 
+            {
+                WatchSyncState((CmdArgsWatchSyncState)args);
+            });
+            verbCmds.Add(CmdVerbs.SetSubscriberSiteStatusVerb, () =>
+            {
+                SetSubscriberSiteStatus((CmdArgsSetSubscriberSiteStatus)args);
             });
             verbCmds.Add(CmdVerbs.GetHelpVerb, () =>
             {
@@ -488,7 +618,7 @@ namespace KuduCalfCmd
         private IEnumerable<KeyValuePair<SubscriberState, HttpStatusCode>> 
             PingSubscribers(IEnumerable<SubscriberState> subs, TimeSpan timeout)
         {
-            var tasks = subs.Select(PingSite).ToArray();
+            var tasks = subs.Select(PingNotifyAll).ToArray();
             Task.WaitAll(tasks, timeout);
             var failed = from task in tasks
                          where task.Exception != null
@@ -503,47 +633,21 @@ namespace KuduCalfCmd
             return succeded;
         }
         
-        private async Task<KeyValuePair<SubscriberState, HttpStatusCode>> PingSite(SubscriberState sub)
+        private async Task<KeyValuePair<SubscriberState, HttpStatusCode>> PingNotifyAll(SubscriberState sub)
         {
-            var client = new HttpClient();
-            var req = new HttpRequestMessage();
-            // see http://tools.ietf.org/html/rfc2606
-            // we assume there is a shadow site listening on
-            // the following invalid host header.
-            
-            req.Headers.Host = "kuducalf.invalid";
-            req.Method =  HttpMethod.Post;
-            req.RequestUri = new Uri(sub.FastUpdateUri,"KuduCalf.ashx?comp=fetch");
-            LogEvent.SendingSyncRequestTo(req.RequestUri, req.Headers.Host);
-            var rsp = await client.SendAsync(req);
+            var rsp = await KuduCalfWeb.Protocol.KuduCalfWebUpdateNotifyAllAsync(sub.PublicUpdateNotifyUri);
             HttpStatusCode statusCode = HttpStatusCode.Unused;
-            if (rsp.StatusCode == HttpStatusCode.Accepted)
-            {
-                var streamBody = StreamProgress(rsp.Content);
-                if (streamBody)
-                {
-                    // TODO: read trailer header to get final status.
-                    statusCode = HttpStatusCode.OK;
-                }
-                else
-                {
-                    // shouldn't happen if it does it's an ICE.
-                    statusCode = HttpStatusCode.InternalServerError;
-                }
-            }
-            else
-            {
-                statusCode = rsp.StatusCode;
-            }
-            WarmupSite(sub, client);
+            statusCode = rsp.StatusCode;
+            WarmupSite(sub);
             return new KeyValuePair<SubscriberState,HttpStatusCode>(sub, statusCode);
         }
 
         // make a real request to warm up the site as well
         // fire and forget
-        private static void WarmupSite(SubscriberState sub, HttpClient client)
+        private static void WarmupSite(SubscriberState sub)
         {
-            client.GetAsync(sub.FastUpdateUri);
+            var client = new HttpClient();
+            client.GetAsync(sub.PublicUpdateNotifyUri);
         }
 
         // A bit of a hack, probably there is a prettier way to do this.

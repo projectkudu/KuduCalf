@@ -38,6 +38,9 @@
     <Reference Include="CommandLine">
       <HintPath>..\packages\CommandLineParser.1.9.71\lib\net45\CommandLine.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.5.0.6\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
@@ -49,6 +52,9 @@
   <ItemGroup>
     <Compile Include="..\Build\CommonAssemblyInfo.cs">
       <Link>CommonAssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\KuduCalfWeb\Protocol.cs">
+      <Link>Protocol.cs</Link>
     </Compile>
     <Compile Include="Cmds.cs" />
     <Compile Include="Config.cs" />
@@ -70,7 +76,7 @@
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <Import Project="$(SolutionDir)\Build\Build.targets" Condition="Exists('$(SolutionDir)\Build\Build.targets')" />
   <Target Name="AfterBuild">
-    <CallTarget  Targets="CopyLibGit2SharpNativeDependencies"/>
+    <CallTarget Targets="CopyLibGit2SharpNativeDependencies" />
   </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

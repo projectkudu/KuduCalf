@@ -11,6 +11,7 @@ namespace SmartSync
     {
         public string SubscribedToPublisher { get; set; }
         public string LastSyncedSnaphostIdToken { get; set; }
-        public Uri FastUpdateUri { get; set; }
+        public Uri PublicUpdateNotifyUri { get; set; }
+        public Uri PrivateUpdateNotifyUri { get; set; }
     } 
 }

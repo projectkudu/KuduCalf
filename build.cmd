@@ -1,4 +1,5 @@
 @echo Off
+setlocal
 set config=%1
 if "%config%" == "" (
    set config=Release

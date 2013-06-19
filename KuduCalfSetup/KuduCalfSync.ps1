@@ -21,87 +21,57 @@ function Enable-ScmDeploymentSync {
         if(-not ($SitePublicUri))
         {
             $SitePublicUri = Get-VipFromScmEndpoint -scmUri $ScmPrivateUri -Credentials $Credentials
-            Write-Host "Autodetected site uri as: $SitePublicUri"
+            Write-Host "Auto detected site uri as: $SitePublicUri"
         }
 
-        Write-Host "Updating KuduCalfCmd"
-        Update-KuduCalfCmd  -Credentials $Credentials -scmUri $ScmPrivateUri
+        Write-Host "Updating SCM site with latest KuduCalfCmd"
+        Invoke-ScmUpdateKuduCalfCmd -scmUri $ScmPrivateUri -zipPath (Get-KuduCalfCmdZipPath)
+        
+        Write-Host "Creating Kudu Calf Site"
         $calfSiteLocalUri = Enable-KuduCalfPublishingForSite -SiteName $SiteName
-        Write-Host "Requesting Init"
-        Invoke-KuduCalfInit -localUri $calfSiteLocalUri -scmUri $ScmPrivateUri
-        $siteId = Get-SiteSubscriptionId -SiteName $SiteName
-        Set-SiteSubscription -scmUri $ScmPrivateUri -Credentials $Credentials -siteUri $SitePublicUri -siteId $siteId
+       
+        Write-Host "Registering Kudu Calf Site"
+        Invoke-KuduCalfWebInit -localUri $calfSiteLocalUri -scmUri $ScmPrivateUri -publicUri $SitePublicUri
     } 
-}
-
-function Invoke-KuduCalfInit([string]$localUri, [string]$scmUri)
-{
-   $ret = [KuduCalfRequest]::Init($localUri,$scmUri + "Git/site/wwwroot/")
-   Write-Host $ret
-}
-
-function Invoke-KuduCalfFetch([string]$localUri)
-{
-   $ret = [KuduCalfRequest]::Fetch($localUri)
-   Write-Host $ret
-}
-
-function Invoke-KuduCalfStatus([string]$localUri)
-{
-   $ret = [KuduCalfRequest]::Status($localUri)
-   Write-Host $ret
 }
 
 function Get-VipFromScmEndpoint([string]$scmUri, [PSCredential]$Credentials)
 {
-  $resp = Invoke-WebRequest -Uri "$scmUri\Env.aspx" -Credential $Credentials
+  $resp = Invoke-WebRequest -Uri "$scmUri\Env.aspx" -Credential $Credentials -UseBasicParsing
   if($resp.RawContent -match "X-Forwarded-For=([^:]+)")
   {
     return "http://"+$Matches[1]+"/"
   }
 }
 
-function Set-SiteSubscription ([string]$scmUri, [PSCredential]$Credentials, [string]$siteUri, [string]$siteId)
+function Invoke-KuduCalfWebInit([string]$localUri, [string]$scmUri, [string]$publicUri, [string]$privateUri)
 {
- $Command = "%HOME%\KuduCalfCmd\KuduCalfCmd.exe New-Subscriber -S $siteId -u $siteUri"
- Invoke-ScmRemoteCommand -Uri $scmUri -Credentials $Credentials -Command $Command
+  $ret = [KuduCalfWeb.Protocol]::KuduCalfWebInit($localUri, $scmUri, $publicUri, $privateUri);
+   Write-Host $ret
 }
 
-function Update-KuduCalfCmd ([string]$scmUri, [PSCredential]$Credentials)
- {
-    if($Credentials -eq $null)
-    {
-        $Credentials = (Get-Credential) 
-    }
-    $zipPath = (Get-KuduCalfCmdZipPath)
-    Invoke-RestMethod -Method Put -Uri "$scmUri/zip/site" -InFile $zipPath -Credential $Credentials 
-    Set-KuduSyncCmd -scmUri $scmUri -Credentials $Credentials -value "%HOME%\KuduCalfCmd\KuduCalfCmd.exe KuduSync" 
-    Invoke-ScmRemoteCommand -Uri $scmUri -Credentials $Credentials -Command "%HOME%\KuduCalfCmd\KuduCalfCmd.exe Initialize-SyncState"
+function Invoke-KuduCalfWebUpdateNotfiy([string]$localUri)
+{
+   $ret = [KuduCalfWeb.Protocol]::KuduCalfWebUpdateNotify($localUri)
+   Write-Host $ret
 }
 
-function Set-KuduSyncCmd ([string]$scmUri, [PSCredential]$Credentials, [string]$value) {
-     $body = (New-Object PSObject -Property @{ KUDU_SYNC_CMD = $value} | ConvertTo-Json)
-     $ret = (Invoke-RestMethod -Method POST -Uri "$scmUri/settings" -Body $body -Credential $Credentials -ContentType "application/json")   
+function Invoke-KuduCalfWebStatus([string]$localUri)
+{
+   $ret = [KuduCalfWeb.Protocol]::KuduCalfWebStatus($localUri)
+   Write-Host $ret
 }
 
-function Invoke-ScmRemoteCommand {
- [CmdLetBinding()]
-    param(
-      [Parameter(Mandatory = $true)]
-      [string]
-      $Uri,
-      [Parameter(Mandatory = $false)]
-      [PSCredential]
-      $Credentials,
-      [Parameter(Mandatory = $true)]
-      [string]
-      $Command)
-    process {
-     $body = (New-Object PSObject -Property @{ command = $Command; dir = "."} | ConvertTo-Json)
-     $ret = (Invoke-RestMethod -Method POST -Uri "$Uri/command" -Body $body -Credential $Credentials -ContentType "application/json")  
-     Write-Host $ret.Error
-     Write-Host $ret.Output
-    }
+function Invoke-ScmUpdateKuduCalfCmd([string]$scmUri, [string]$zipPath, [bool]$force =$false)
+{
+   $ret = [KuduCalfWeb.Protocol]::ScmUpdateKuduCalfCmd($scmUri, $zipPath, $force);
+   Write-Host $ret;
+}
+
+function Invoke-KuduCalfCmdRegisterSite([string]$scmUri, [string]$siteId, [string]$publicUri)
+{
+   $ret = [KuduCalfWeb.Protocol]::KuduCalfCmdRegisterSite($scmUri, $siteId, $publicUri, $null);
+   Write-Host $ret;
 }
 
 function Cleanup-ScmUri([string]$uri)
@@ -128,6 +98,7 @@ function Get-AbsolutePath {
         }
     }
 }
+
 function Remove-FilesInPhysicalDir([string]$Path)
 {
     Remove-Item -Path "$Path\*" -Recurse -Confirm
@@ -156,12 +127,17 @@ function Set-AclsOnDir([string]$Path)
     Set-Acl -Path $Path -AclObject $objACL; 
 }
 
+function Get-KuduCalfSiteName([string]$Name)
+{
+    return "KuduCalf site for ($Name)"
+}
+
 function Enable-KuduCalfPublishingForSite([string]$SiteName = "Default Web Site")
 {
    $calfWebAppPoolName = "KuduCalfWebAppPool"
    EnsureKuduCalfAppPoolExists -Name $calfWebAppPoolName
    $targetSite = Get-WebSite -Name $SiteName
-   $calfSiteName = "KuduCalf site for ($SiteName)" 
+   $calfSiteName = Get-KuduCalfSiteName -Name $SiteName
    [int]$calfSitePort = (Get-LocalPortForSite -Name $SiteName)
    $calfSitePhysicalPath = (Get-KuduCalfWebPath)
    $targetSitePhysicalPath = (New-PhysicalDirectory)
@@ -190,7 +166,6 @@ function Enable-KuduCalfPublishingForSite([string]$SiteName = "Default Web Site"
    Set-AclsOnDir -Path $calfSitePhysicalPath
    return "http://localhost:$calfSitePort/".Trim();
 }
-
 
 function Get-LocalPortForSite([string]$Name)
 {
@@ -234,18 +209,6 @@ function Get-CredentialsFromUri([string]$rawUri)
 
 }
 
-function Get-SiteSubscriptionId([string] $SiteName)
-{
-    $siteId = (Get-WebSite -Name $SiteName).Id;
-    $machineId = (Get-MachineId);
-    return "site"+$siteId+"."+$machineId;
-}
-
-function Get-MachineId()
-{
-    return [System.Net.Dns]::GetHostEntry([System.Net.Dns]::GetHostName()).HostName;
-}
-
 function New-PhysicalDirectory
 {
     $appsPath = Join-Path -Path "c:\inetpub" -ChildPath "KuduCalfApps"
@@ -286,66 +249,21 @@ function Init()
     {
         return;
     }
-$code = @"
-using System;
-using System.Net;
-static public class KuduCalfRequest
-{
-    private static string GetText(System.IO.Stream strm)
-    {
-        using (var rd = new System.IO.StreamReader(strm))
-        {
-            return rd.ReadToEnd();
-        }
-    }
-    private static string GetResponse(HttpWebRequest req)
-    {
-        try
-        {
-            var resp = (HttpWebResponse)req.GetResponse();
-            var detail = GetText(resp.GetResponseStream());
-            return String.Format("{0}\n{1}", resp.StatusCode, detail);
-        }
-        catch (WebException we)
-        {
-            var resp = (HttpWebResponse)we.Response;
-            var detail = GetText(resp.GetResponseStream());
-            return String.Format("Status-Code: {0}\n{1}", resp.StatusCode, detail);
-        }
-    }
-    public static string Init(string s, string repoUri)
-    {
-        var req = (HttpWebRequest)WebRequest.Create(s + "KuduCalf.ashx?comp=init");
-        req.Host = "kuducalf.invalid";
-        req.Method = "POST";
-        var strm = req.GetRequestStream();
-        using (var txtwr = new System.IO.StreamWriter(strm))
-        {
-            txtwr.WriteLine(repoUri);
-        }
-        strm.Close();
-        return GetResponse(req);
-    }
-    public static string Fetch(string s)
-    {
-        var req = (HttpWebRequest)WebRequest.Create(s + "KuduCalf.ashx?comp=fetch");
-        req.Host = "kuducalf.invalid";
-        req.Method = "POST";
-        req.GetRequestStream().Close();
-        return GetResponse(req);
-    }
-
-    public static string Status(string s)
-    {
-        var req = (HttpWebRequest)WebRequest.Create(s + "KuduCalf.ashx");
-        req.Host = "kuducalf.invalid";
-        req.Method = "GET";
-        return GetResponse(req);
-    }
-}
-"@
-Add-Type $code -Language CSharp
+$kuduCalfWebfDll = Join-Path -Path (Get-KuduCalfWebPath) -ChildPath "bin\KuduCalfWeb.dll"
+Add-Type -LiteralPath $kuduCalfWebfDll
 $global:inited = $true;
 }
+
 #$devMode = $true;
 Init
+
+if($devMode)
+{
+    function SmokeTest([string]$TestScmUri)
+    {
+       $TestCreds = CredentialsFromUri -rawUri $TestUri
+       Update-KuduCalfCmd  -Credentials $TestCreds -scmUri $TestUri
+       Write-Output [KuduCalfWeb.Protocol]::KuduCalfCmdRemote($TestUri,"get-help *");
+       Write-Output [KuduCalfWeb.Protocol]::ScmUpdateKuduCalfCmd($TestUri, (Get-KuduCalfCmdZipPath));
+    }
+}

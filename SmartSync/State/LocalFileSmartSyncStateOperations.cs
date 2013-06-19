@@ -77,7 +77,7 @@ namespace SmartSync
                 {
                     if (retries < 0)
                     {
-                        throw new System.IO.IOException("Unable to update blob after several retries.");
+                        throw new System.IO.IOException("Unable to update after several retries.");
                     }
                     System.Threading.Thread.Sleep(sleepIntervalMs);
                     sleepIntervalMs *= 2;

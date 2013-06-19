@@ -69,6 +69,31 @@ namespace SmartSync
             DeleteAgent(id);
         }
 
+        public IEnumerable<SubscriberState> NotAtTargetState()
+        {
+            var state = ReadState();
+            IList<SubscriberState> outSync = new List<SubscriberState>();
+            var subs = state.Agents.Values.OfType<SubscriberState>();
+            foreach (var sub in subs)
+            {
+                var subLatestToken = sub.LastSyncedSnaphostIdToken;
+                if (!String.IsNullOrEmpty(sub.SubscribedToPublisher))
+                {
+                    var pub = state.Agents[sub.SubscribedToPublisher] as PublisherState;
+                    var target = pub.LatestSnapshotIdToken;
+
+                    if (!String.IsNullOrEmpty(target))
+                    {
+                        if (!target.Equals(subLatestToken, StringComparison.Ordinal))
+                        {
+                            outSync.Add(sub);
+                        }
+                    }
+                }
+            }
+            return outSync;
+        }
+
         public void GarbageCollectExpiredAgents()
         {
             ReadModifyWriteState(state =>

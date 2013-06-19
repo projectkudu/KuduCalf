@@ -6,10 +6,23 @@ using System.Threading.Tasks;
 using System.Configuration;
 using System.IO;
 using System.Reflection;
+using System.Diagnostics;
 namespace KuduCalfCmd
 {
     class Config
     {
+        public FileVersionInfo VersionInfo 
+        {
+            get
+            {
+                if (_fileVersionInfo == null)
+                {
+                   _fileVersionInfo =  FileVersionInfo.GetVersionInfo(ExecutingProgramLocation.FullName);
+                }
+                return _fileVersionInfo;
+            }
+        }
+
         public DirectoryInfo GitRepositoryDirectory
         {
             get
@@ -69,23 +82,25 @@ namespace KuduCalfCmd
                 return _subscriberStateDirectory;
             }
         }
-
-        private FileInfo executingProgramLocation;
-        private DirectoryInfo _gitRepositoryDirectory;
-        private DirectoryInfo _subscriberStateDirectory;
-        
+       
         private FileInfo ExecutingProgramLocation
         {
             get
             {
-                if (executingProgramLocation == null)
+                if (_executingProgramLocation == null)
                 {
                     var asm = Assembly.GetExecutingAssembly();
                     var uri = new Uri(asm.CodeBase);
-                    executingProgramLocation = new FileInfo(uri.LocalPath);
+                    _executingProgramLocation = new FileInfo(uri.LocalPath);
                 }
-                return executingProgramLocation;
+                return _executingProgramLocation;
             }
         }
+        private FileVersionInfo _fileVersionInfo;
+        private FileInfo _executingProgramLocation;
+        private DirectoryInfo _gitRepositoryDirectory;
+        private DirectoryInfo _subscriberStateDirectory;
+        
+       
     }
 }
