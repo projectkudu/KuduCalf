@@ -14,4 +14,4 @@ See the [documentation](https://github.com/projectkudu/kuducalf/wiki)
 
 [Details here](https://github.com/projectkudu/kudu/wiki/Project-governance-model)
 
-[![Outercurve Foundation](http://www.outercurve.org/Portals/0/Skins/CodePlex_NEW/images/footer-logo.jpg)](http://www.outercurve.org/)
+This project is under the benevolent umbrella of the [.NET Foundation](http://www.dotnetfoundation.org/).
